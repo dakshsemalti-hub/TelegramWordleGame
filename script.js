@@ -1,6 +1,6 @@
-11.06 8:07 PM
-// 🚨 LIVE SERVER ADDRESS 
-// (Wordlyy is the name you chose on Render.com)
+// ----------------- SERVER CONFIGURATION -----------------
+
+// 🚨 LIVE SERVER ADDRESS (Your Render URL)
 const SERVER_URL = 'https://wordlyy.onrender.com/api'; 
 
 function getTelegramUserId() {
@@ -16,23 +16,20 @@ function getTelegramUserId() {
 
 // -------------------------------------------------------------
 
+
 const NUMBER_OF_GUESSES = 6;
 const WORD_LENGTH = 5;
 
 // --- CONFIGURATION & PLACEHOLDERS ---
 
-// 1. PLACEHOLDER: The word must be loaded from your server.
-// The server ensures it's the correct word based on the date and 12 AM IST reset.
-let TARGET_WORD = "CLOUD"; // Example placeholder. This must be loaded from server.
-
-// 2. PLACEHOLDER: The unique ID for the day/word (e.g., Day 423 of the game).
-let GAME_NUMBER = 101; 
+// 1. PLACEHOLDER: The word must be loaded from the server
+let TARGET_WORD = "CLOUD"; // Example placeholder, will be replaced by server
+let GAME_NUMBER = 101; // Example placeholder, will be replaced by server
 
 // 3. IST Reset Time for display (00:00:00)
-const IST_RESET_HOUR = 0;
+const IST_RESET_HOUR = 0; 
 const IST_RESET_MINUTE = 0;
 const IST_RESET_SECOND = 0;
-
 
 let guesses = [];
 let currentGuess = "";
@@ -46,9 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.Telegram.WebApp.ready();
     }
     
-    // 2. Load Daily Game State (This is where the server connection happens)
+    // 2. Load Daily Game State (This is where the target word is fetched)
     loadDailyGameState();
-
+    
     // 3. Set up the UI
     initializeBoard();
     initializeKeyboard();
@@ -56,9 +53,107 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('stats-button').addEventListener('click', () => showModal('stats'));
     
     // 4. Start the reset timer
-    setInterval(updateResetTimer, 1000);
-    updateResetTimer(); // Run immediately
+    // Ensure moment.js (for time zone handling) is loaded in your index.html
+    if (typeof moment !== 'undefined') {
+        setInterval(updateResetTimer, 1000); // Run every second
+        updateResetTimer(); // Run immediately to set initial time
+    } else {
+        console.warn("Moment.js is required for the timer, please include it in index.html");
+    }
 });
+
+// --- CORE GAME LOGIC ---
+
+function initializeBoard() {
+    const board = document.getElementById('board');
+    board.innerHTML = ''; // Clear existing content
+    for (let i = 0; i < NUMBER_OF_GUESSES; i++) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.id = `row-${i}`;
+        for (let j = 0; j < WORD_LENGTH; j++) {
+            const box = document.createElement('div');
+            box.className = 'box';
+            row.appendChild(box);
+        }
+        board.appendChild(row);
+    }
+}
+
+function initializeKeyboard() {
+    // Note: Ensure your index.html has a keyboard defined with ids for keys
+}
+
+function handleKeyInput(event) {
+    if (gameOver) return;
+    
+    const key = event.key.toUpperCase();
+
+    if (key === 'ENTER') {
+        checkGuess();
+    } else if (key === 'BACKSPACE') {
+        deleteLetter();
+    } else if (key.match(/^[A-Z]$/)) {
+        updateCurrentGuess(key);
+    }
+}
+
+function updateCurrentGuess(key) {
+    if (currentGuess.length < WORD_LENGTH) {
+        const row = document.getElementById(`row-${guesses.length}`);
+        const box = row.children[currentGuess.length];
+        box.textContent = key;
+        currentGuess += key;
+    }
+}
+
+function deleteLetter() {
+    if (currentGuess.length > 0) {
+        const row = document.getElementById(`row-${guesses.length}`);
+        const box = row.children[currentGuess.length - 1];
+        box.textContent = '';
+        currentGuess = currentGuess.slice(0, -1);
+    }
+}
+
+function showMessage(msg, type = 'info') {
+    const messageBar = document.getElementById('message-bar');
+    messageBar.textContent = msg;
+    messageBar.className = `message-bar ${type}`;
+    messageBar.style.display = 'block';
+    
+    // Clear message after a few seconds
+    setTimeout(() => {
+        messageBar.style.display = 'none';
+        messageBar.className = 'message-bar';
+    }, 3000);
+}
+
+function evaluateGuess(guess, target) {
+    const result = Array(WORD_LENGTH).fill('absent');
+    const targetLetters = target.split('');
+
+    // 1. Check for 'correct' (green)
+    for (let i = 0; i < WORD_LENGTH; i++) {
+        if (guess[i] === target[i]) {
+            result[i] = 'correct';
+            targetLetters[i] = null; // Consume the letter
+        }
+    }
+
+    // 2. Check for 'present' (yellow)
+    for (let i = 0; i < WORD_LENGTH; i++) {
+        if (result[i] === 'absent') {
+            const targetIndex = targetLetters.indexOf(guess[i]);
+            if (targetIndex !== -1) {
+                result[i] = 'present';
+                targetLetters[targetIndex] = null; // Consume the letter
+            }
+        }
+    }
+    return result;
+}
+
 function submitGameScore(tries) {
     const scoreData = {
         userId: getTelegramUserId(),
@@ -79,115 +174,90 @@ function submitGameScore(tries) {
     .catch(error => console.error('Error submitting score:', error));
 }
 
-// --- CORE GAME LOGIC (Copied/Modified from previous step for completeness) ---
-
-function initializeBoard() { /* ... (Same as previous step) ... */ }
-function initializeKeyboard() { /* ... (Same as previous step) ... */ }
-function handleKeyInput(event) { /* ... (Same as previous step) ... */ }
-function updateCurrentGuess(key) { /* ... (Same as previous step) ... */ }
-function deleteLetter() { /* ... (Same as previous step) ... */ }
-function showMessage(msg) { /* ... (Same as previous step) ... */ }
-function evaluateGuess(guess, target) { /* ... (Same as previous step) ... */ }
-
 
 function checkGuess() {
+    if (gameOver) return;
     if (currentGuess.length !== WORD_LENGTH) {
         showMessage("Not enough letters!");
         return;
     }
 
-    // *** SERVER CHECK REQUIRED: Check if currentGuess is a valid English word ***
-
-    const row = document.getElementById('game-board').children[guesses.length - 1];
+    // For simplicity, we use client-side word evaluation
+    
+    const row = document.getElementById(`row-${guesses.length}`);
     let guessResult = evaluateGuess(currentGuess, TARGET_WORD);
 
     // Apply colors and update keyboard
     guessResult.forEach((status, index) => {
         const box = row.children[index];
         box.classList.add(status);
-        
-        const keyButton = document.getElementById(`key-${currentGuess[index]}`);
+
+        const keyButton = document.getElementById(currentGuess[index]);
         if (keyButton) {
-            // Logic to prevent downgrading color (e.g., Green over Yellow)
+            // Logic to prevent downgrading a 'correct' key to 'present' or 'absent'
             if (status === 'correct') {
                 keyButton.classList.remove('present', 'absent');
                 keyButton.classList.add('correct');
             } else if (status === 'present' && !keyButton.classList.contains('correct')) {
-                keyButton.classList.remove('absent');
                 keyButton.classList.add('present');
+                keyButton.classList.remove('absent');
             } else if (status === 'absent' && !keyButton.classList.contains('correct') && !keyButton.classList.contains('present')) {
                 keyButton.classList.add('absent');
             }
         }
     });
 
+    guesses.push(currentGuess);
+    currentGuess = "";
+    
+    // Check Win Condition
     if (currentGuess === TARGET_WORD) {
         gameOver = true;
-        showMessage(`You Win! Game ${GAME_NUMBER}`);
-        // *** SERVER ACTION: Send Win Score to back-end ***
-        // Server records: UserID, GameNum, Tries (guesses.length), Timestamp
-        submitGameScore(guesses.length);
-
+        // 💾 Send Win Score to back-end
+        submitGameScore(guesses.length); 
         setTimeout(() => showModal('win', guesses.length), 1500);
         return;
-    } else if (guesses.length === NUMBER_OF_GUESSES) {
+    }
+    
+    // Check Loss Condition
+    else if (guesses.length === NUMBER_OF_GUESSES) {
         gameOver = true;
-        showMessage(`Game Over. Word was: ${TARGET_WORD}`);
-        // *** SERVER ACTION: Send Loss to back-end ***
+        // 💾 Send Loss Score to back-end (7 tries for a loss)
         submitGameScore(NUMBER_OF_GUESSES + 1); 
-        
         setTimeout(() => showModal('loss', guesses.length), 1500);
         return;
     }
-
-    // Prepare for the next guess
-    guesses.push(Array.from({ length: WORD_LENGTH }, () => ''));
-    currentGuess = "";
 }
 
+// ----------------- MODAL, STATS, LEADERBOARD, & SHARE -----------------
 
-// --- TIME & SERVER INTEGRATION FUNCTIONS ---
-
-// NOTE: This only calculates the time remaining on the client. 
-// The actual word change MUST be managed by your server.
 function updateResetTimer() {
-    const now = new Date();
-    // Use IST timezone (UTC+5:30) for calculation
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const nowIst = new Date(now.getTime() + istOffset);
+    // Ensure moment.js is loaded
+    if (typeof moment === 'undefined') return;
 
-    const nextReset = new Date(nowIst);
-    nextReset.setUTCHours(IST_RESET_HOUR, IST_RESET_MINUTE, IST_RESET_SECOND, 0);
-
-    // If the reset time for today has passed, set it for tomorrow
-    if (nextReset.getTime() <= nowIst.getTime()) {
-        nextReset.setUTCDate(nextReset.getUTCDate() + 1);
+    const now = moment().tz('Asia/Kolkata');
+    const resetTime = moment().tz('Asia/Kolkata').endOf('day').add(1, 'second'); // 00:00:00 tomorrow
+    
+    if (now.isAfter(resetTime)) {
+        resetTime.add(1, 'day');
     }
     
-    // Calculate difference in milliseconds
-    let diffMs = nextReset.getTime() - nowIst.getTime();
-
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    diffMs -= hours * (1000 * 60 * 60);
-    const minutes = Math.floor(diffMs / (1000 * 60));
-    diffMs -= minutes * (1000 * 60);
-    const seconds = Math.floor(diffMs / 1000);
-
-    const timerDisplay = document.getElementById('refresh-time-display');
-    timerDisplay.textContent = `⏳ ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const duration = moment.duration(resetTime.diff(now));
     
-    // If timer hits zero, force a reload to get the new word (and update the timer)
-    if (hours === 0 && minutes === 0 && seconds === 0) {
-        // *** SERVER ACTION: Reload the game state from the server ***
-        // location.reload(); 
+    const hours = duration.hours().toString().padStart(2, '0');
+    const minutes = duration.minutes().toString().padStart(2, '0');
+    const seconds = duration.seconds().toString().padStart(2, '0');
+
+    const timerElement = document.getElementById('reset-timer');
+    if (timerElement) {
+        timerElement.textContent = `${hours}:${minutes}:${seconds}`;
     }
 }
-
 
 function loadDailyGameState() {
     const userId = getTelegramUserId();
     
-    // 1. Fetch the TARGET_WORD and GAME_NUMBER from your back-end.
+    // Fetch the game info (word, game ID) for the current day
     fetch(`${SERVER_URL}/game-info?userId=${userId}`)
         .then(res => {
             if (!res.ok) throw new Error('Failed to fetch game info');
@@ -195,9 +265,12 @@ function loadDailyGameState() {
         })
         .then(data => {
             if (data.success) {
+                // Update global variables
                 TARGET_WORD = data.targetWord; 
                 GAME_NUMBER = data.gameId;    
                 console.log(`✅ Game loaded. Day ${GAME_NUMBER}, Word: ${TARGET_WORD}`);
+
+                // Optionally, if data.guesses exists, initialize the board with past guesses
             }
         })
         .catch(error => {
@@ -212,7 +285,6 @@ function showModal(type, tries = 0) {
     const modalBody = document.getElementById('modal-body');
     const triesDisplay = (tries <= NUMBER_OF_GUESSES) ? `${tries} / ${NUMBER_OF_GUESSES}` : 'Failed';
     
-    // Default content structure
     let htmlContent = '';
 
     if (type === 'win') {
@@ -224,7 +296,7 @@ function showModal(type, tries = 0) {
     // --- 1. User Stats (PLACEHOLDER) ---
     htmlContent += '<h2>Your Stats</h2>';
     htmlContent += `<p>Game Result: **${triesDisplay}**</p>`;
-    // Add other stats placeholders here
+    // This section would typically fetch real stats, but we use placeholders for now
     htmlContent += `<p>Games Played: **10** | Win %: **70%**</p>`;
     htmlContent += `<p>Current Streak: **5** | Max Streak: **8**</p>`;
 
@@ -248,33 +320,41 @@ function showModal(type, tries = 0) {
         .then(res => res.json())
         .then(data => {
             let tableRows = '';
-            data.leaderboard.forEach((entry) => {
-                tableRows += `
-                    <tr>
-                        <td>${entry.rank}</td>
-                        <td>${entry.user}</td>
-                        <td>${entry.tries}</td>
-                        <td>${entry.timestamp}</td>
-                    </tr>
-                `;
-            });
+            if (data.leaderboard && data.leaderboard.length > 0) {
+                data.leaderboard.forEach((entry) => {
+                    // Formatting timestamp for display
+                    const timestamp = (typeof moment !== 'undefined') ? moment(entry.timestamp).format('HH:mm:ss') : 'N/A';
+                    
+                    tableRows += `
+                        <tr>
+                            <td>${entry.rank}</td>
+                            <td>${entry.user}</td>
+                            <td>${entry.tries}</td>
+                            <td>${timestamp}</td>
+                        </tr>
+                    `;
+                });
 
-            // Assemble the final HTML table
-            const finalLeaderboardHtml = `
-                ${leaderboardHtml.replace('<p id="leaderboard-status">Loading leaderboard...</p>', '')}
-                <table id="leaderboard-table">
-                    <thead>
-                        <tr><th>Rank</th><th>User</th><th>Tries</th><th>Time</th></tr>
-                    </thead>
-                    <tbody>
-                        ${tableRows}
-                    </tbody>
-                </table>
-            `;
-            
-            // Re-update the modal content with the final table
-            const existingContent = document.getElementById('modal-body').innerHTML.replace(/<p[^>]*>Loading leaderboard...<\/p>/, '');
-            document.getElementById('modal-body').innerHTML = existingContent + finalLeaderboardHtml;
+                // Assemble the final HTML table
+                const finalLeaderboardHtml = `
+                    ${leaderboardHtml.replace('<p id="leaderboard-status">Loading leaderboard...</p>', '')}
+                    <table id="leaderboard-table">
+                        <thead>
+                            <tr><th>Rank</th><th>User</th><th>Tries</th><th>Time</th></tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                `;
+                
+                // Re-update the modal content with the final table
+                const existingContent = document.getElementById('modal-body').innerHTML.replace(/<p[^>]*>Loading leaderboard...<\/p>/, '');
+                document.getElementById('modal-body').innerHTML = existingContent + finalLeaderboardHtml;
+            } else {
+                 document.getElementById('leaderboard-status').textContent = "No scores submitted yet.";
+            }
+
         })
         .catch(error => {
             console.error("❌ Error fetching leaderboard:", error);
@@ -284,65 +364,11 @@ function showModal(type, tries = 0) {
 
     document.getElementById('modal-close').onclick = function() {
         modal.style.display = 'none';
-        // Clear board/reset game state if necessary
     };
     
     // Add Share button functionality
     document.getElementById('share-results-button').onclick = function() {
-        // ... (Existing share logic here) ...
-        alert('Share function is active!'); 
+        // Simple placeholder for sharing
+        alert(`I solved Wordle #${GAME_NUMBER} in ${triesDisplay}!`);
     }
-}
-
-
-// Generates the Wordle-style grid share text
-function generateShareText(tries) {
-    const isWin = tries <= NUMBER_OF_GUESSES;
-    let grid = '';
-    
-    // Generate the emoji grid based on the guesses made so far
-    for (let i = 0; i < tries; i++) {
-        const rowDiv = document.getElementById('game-board').children[i];
-        let rowEmojis = '';
-        for (let j = 0; j < WORD_LENGTH; j++) {
-            const box = rowDiv.children[j];
-            if (box.classList.contains('correct')) {
-                rowEmojis += '🟩';
-            } else if (box.classList.contains('present')) {
-                rowEmojis += '🟨';
-            } else {
-                rowEmojis += '⬛';
-            }
-        }
-        grid += rowEmojis + '\n';
     }
-
-    const title = `T-WORDLE ${GAME_NUMBER} ${isWin ? tries : 'X'}/${NUMBER_OF_GUESSES}`;
-    return `${title}\n\n${grid}\n\nPlay T-Wordle on Telegram!`;
-}
-
-
-function shareResults(tries) {
-    const shareText = generateShareText(tries);
-
-    // 1. **Telegram Web App Share (Best Option)**
-    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.isTWA) {
-        // Send a message back to the chat with the game results
-        window.Telegram.WebApp.switchInlineQuery(shareText, ['users', 'groups']);
-        
-    } 
-    // 2. **Standard Web Share API**
-    else if (navigator.share) {
-        navigator.share({
-            title: 'T-WORDLE Results',
-            text: shareText,
-            url: window.location.href // Link back to the game bot/URL
-        }).catch(error => console.error('Error sharing:', error));
-    } 
-    // 3. **Fallback: Copy to Clipboard**
-    else {
-        navigator.clipboard.writeText(shareText).then(() => {
-            showMessage("Results copied to clipboard!");
-        });
-    }
-}
