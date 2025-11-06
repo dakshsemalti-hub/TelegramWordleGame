@@ -1,4 +1,21 @@
 11.06 8:07 PM
+// 🚨 LIVE SERVER ADDRESS 
+// (Wordlyy is the name you chose on Render.com)
+const SERVER_URL = 'https://wordlyy.onrender.com/api'; 
+
+function getTelegramUserId() {
+    // Safely extracts the user's ID provided by Telegram Web App
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+        if (window.Telegram.WebApp.initDataUnsafe.user && window.Telegram.WebApp.initDataUnsafe.user.id) {
+            return window.Telegram.WebApp.initDataUnsafe.user.id.toString();
+        }
+    }
+    // Fallback ID for testing outside Telegram
+    return 'TESTUSER_LOCAL'; 
+}
+
+// -------------------------------------------------------------
+
 const NUMBER_OF_GUESSES = 6;
 const WORD_LENGTH = 5;
 
@@ -42,6 +59,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateResetTimer, 1000);
     updateResetTimer(); // Run immediately
 });
+function submitGameScore(tries) {
+    const scoreData = {
+        userId: getTelegramUserId(),
+        gameId: GAME_NUMBER,
+        tries: tries, 
+        timestamp: Date.now() 
+    };
+    
+    fetch(`${SERVER_URL}/submit-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scoreData)
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log('Score submission status:', data.message);
+    })
+    .catch(error => console.error('Error submitting score:', error));
+}
 
 // --- CORE GAME LOGIC (Copied/Modified from previous step for completeness) ---
 
@@ -90,12 +126,16 @@ function checkGuess() {
         showMessage(`You Win! Game ${GAME_NUMBER}`);
         // *** SERVER ACTION: Send Win Score to back-end ***
         // Server records: UserID, GameNum, Tries (guesses.length), Timestamp
+        submitGameScore(guesses.length);
+
         setTimeout(() => showModal('win', guesses.length), 1500);
         return;
     } else if (guesses.length === NUMBER_OF_GUESSES) {
         gameOver = true;
         showMessage(`Game Over. Word was: ${TARGET_WORD}`);
         // *** SERVER ACTION: Send Loss to back-end ***
+        submitGameScore(NUMBER_OF_GUESSES + 1); 
+        
         setTimeout(() => showModal('loss', guesses.length), 1500);
         return;
     }
@@ -145,66 +185,115 @@ function updateResetTimer() {
 
 
 function loadDailyGameState() {
-    // *** SERVER CALL REQUIRED HERE ***
-    // 1. Fetch the TARGET_WORD and GAME_NUMBER from your back-end.
-    // 2. Fetch the user's saved game state (if they are mid-game).
-    // 3. Fetch the user's general stats.
-
-    // If the game is already complete for the day (status == 'win' or 'loss'), 
-    // set gameOver = true and display the result.
+    const userId = getTelegramUserId();
     
-    console.log("Loading game state from server...");
-    // Example: TARGET_WORD = server_data.word;
-    // Example: GAME_NUMBER = server_data.game_id;
+    // 1. Fetch the TARGET_WORD and GAME_NUMBER from your back-end.
+    fetch(`${SERVER_URL}/game-info?userId=${userId}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch game info');
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                TARGET_WORD = data.targetWord; 
+                GAME_NUMBER = data.gameId;    
+                console.log(`✅ Game loaded. Day ${GAME_NUMBER}, Word: ${TARGET_WORD}`);
+            }
+        })
+        .catch(error => {
+            console.error("❌ Error fetching game info:", error);
+            showMessage("Server error. Cannot load word.");
+        });
 }
 
-
-// --- MODAL, STATS, LEADERBOARD, & SHARE ---
 
 function showModal(type, tries = 0) {
     const modal = document.getElementById('modal');
     const modalBody = document.getElementById('modal-body');
-    modal.style.display = 'block';
+    const triesDisplay = (tries <= NUMBER_OF_GUESSES) ? `${tries} / ${NUMBER_OF_GUESSES}` : 'Failed';
     
+    // Default content structure
     let htmlContent = '';
-    
-    if (type === 'stats' || type === 'win' || type === 'loss') {
-        // *** SERVER CALL REQUIRED: Fetch user stats and leaderboard ***
-        
-        // --- 1. User Stats (PLACEHOLDER) ---
-        htmlContent += '<h2>Your Stats</h2>';
-        htmlContent += `<p>Games Played: **10** | Win %: **70%**</p>`;
-        htmlContent += `<p>Current Streak: **5** | Max Streak: **8**</p>`;
 
-        // --- 2. Share Button (Enabled for Win/Loss) ---
-        if (type !== 'stats') {
-            htmlContent += '<p style="margin-top: 20px;">' + 
-                `<button id="share-results-button">Share Results</button>` + 
-                '</p>';
-        }
-
-        // --- 3. Leaderboard (PLACEHOLDER) ---
-        htmlContent += '<h2>Global Leaderboard</h2>';
-        htmlContent += '<p style="font-size: 0.9em;">Ranking: Fewer Tries, then Faster Time.</p>';
-        htmlContent += `
-            <table id="leaderboard-table">
-                <thead>
-                    <tr><th>Rank</th><th>User</th><th>Tries</th><th>Time (Tie-breaker)</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>1</td><td>🥇 Alice</td><td>3</td><td>00:45</td></tr>
-                    <tr><td>2</td><td>🥈 You</td><td>3</td><td>01:10</td></tr>
-                    <tr><td>3</td><td>🥉 Bob</td><td>4</td><td>00:30</td></tr>
-                </tbody>
-            </table>`;
+    if (type === 'win') {
+        showMessage('You Win!', 'success');
+    } else if (type === 'loss') {
+        showMessage(`The word was: ${TARGET_WORD}`, 'error');
     }
-    
-    modalBody.innerHTML = htmlContent;
-    
+
+    // --- 1. User Stats (PLACEHOLDER) ---
+    htmlContent += '<h2>Your Stats</h2>';
+    htmlContent += `<p>Game Result: **${triesDisplay}**</p>`;
+    // Add other stats placeholders here
+    htmlContent += `<p>Games Played: **10** | Win %: **70%**</p>`;
+    htmlContent += `<p>Current Streak: **5** | Max Streak: **8**</p>`;
+
+    // --- 2. Share Button ---
     if (type !== 'stats') {
-        document.getElementById('share-results-button').addEventListener('click', () => shareResults(tries));
+        htmlContent += '<p style="margin-top: 20px;">' + 
+            `<button id="share-results-button">Share Results</button>` + 
+            '</p>';
+    }
+
+    // --- 3. Leaderboard (DYNAMICALLY FETCHED) ---
+    let leaderboardHtml = '<h2>Global Leaderboard</h2>';
+    leaderboardHtml += '<p style="font-size: 0.9em;">Ranking: Fewer Tries, then Faster Time.</p>';
+    leaderboardHtml += '<p id="leaderboard-status">Loading leaderboard...</p>'; 
+
+    modalBody.innerHTML = htmlContent + leaderboardHtml; 
+    modal.style.display = 'block';
+
+    // Fetch the leaderboard data from the server
+    fetch(`${SERVER_URL}/leaderboard`)
+        .then(res => res.json())
+        .then(data => {
+            let tableRows = '';
+            data.leaderboard.forEach((entry) => {
+                tableRows += `
+                    <tr>
+                        <td>${entry.rank}</td>
+                        <td>${entry.user}</td>
+                        <td>${entry.tries}</td>
+                        <td>${entry.timestamp}</td>
+                    </tr>
+                `;
+            });
+
+            // Assemble the final HTML table
+            const finalLeaderboardHtml = `
+                ${leaderboardHtml.replace('<p id="leaderboard-status">Loading leaderboard...</p>', '')}
+                <table id="leaderboard-table">
+                    <thead>
+                        <tr><th>Rank</th><th>User</th><th>Tries</th><th>Time</th></tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
+            `;
+            
+            // Re-update the modal content with the final table
+            const existingContent = document.getElementById('modal-body').innerHTML.replace(/<p[^>]*>Loading leaderboard...<\/p>/, '');
+            document.getElementById('modal-body').innerHTML = existingContent + finalLeaderboardHtml;
+        })
+        .catch(error => {
+            console.error("❌ Error fetching leaderboard:", error);
+            const statusElement = document.getElementById('leaderboard-status');
+            if(statusElement) statusElement.textContent = "Could not load leaderboard data.";
+        });
+
+    document.getElementById('modal-close').onclick = function() {
+        modal.style.display = 'none';
+        // Clear board/reset game state if necessary
+    };
+    
+    // Add Share button functionality
+    document.getElementById('share-results-button').onclick = function() {
+        // ... (Existing share logic here) ...
+        alert('Share function is active!'); 
     }
 }
+
 
 // Generates the Wordle-style grid share text
 function generateShareText(tries) {
