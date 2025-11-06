@@ -1,0 +1,38 @@
+11.06 8:02 PM
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Wordle Clone</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script> 
+</head>
+<body>
+    <header>
+        <h1 class="title">T-WORDLE</h1>
+        <div id="header-icons">
+            <button id="stats-button" title="Your Stats and Leaderboard"></button>
+            <button id="refresh-time-display" title="Time until next word">⏳ 00:00:00</button>
+        </div>
+    </header>
+
+    <div id="game-container">
+        <div id="game-board"></div> 
+    </div>
+
+    <div id="keyboard-container"></div>
+
+    <div id="message-area" role="alert"></div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('modal').style.display='none'">&times;</span>
+            <div id="modal-body">
+                </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
