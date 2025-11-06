@@ -1,0 +1,212 @@
+11.06 8:05 PM
+:root {
+    /* Wordle Colors */
+    --color-correct: #6AAA64; /* Green */
+    --color-present: #C9B458; /* Yellow */
+    --color-absent: #787C7E;  /* Dark Gray */
+    --color-default: #1A1A1B; /* Tile Background */
+    --color-border: #3A3A3C;  /* Tile Border */
+    --color-text: #FFFFFF;
+    --color-bg: #121213; /* Overall Background */
+}
+
+/* Base styles for a clean, Wordle-like dark mode interface */
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    margin: 0;
+    padding-top: 20px;
+    user-select: none;
+}
+
+header {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px 15px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: 0.15rem;
+    margin: 0;
+}
+
+#header-icons button {
+    background: none;
+    border: none;
+    color: var(--color-text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 5px 10px;
+    margin-left: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+#header-icons button:hover {
+    background-color: #3A3A3C;
+}
+
+/* --- Game Board --- */
+#game-board {
+    display: grid;
+    grid-template-rows: repeat(6, 1fr);
+    grid-gap: 8px;
+    padding: 10px;
+    height: 420px; 
+    width: 350px; 
+    margin: 20px auto;
+}
+
+.letter-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-gap: 8px;
+}
+
+.letter-box {
+    width: 100%;
+    height: 100%;
+    border: 2px solid var(--color-border);
+    font-size: 2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-default);
+    transition: transform 0.2s, background-color 0.5s;
+}
+
+/* Styles for feedback */
+.correct {
+    background-color: var(--color-correct) !important;
+    border-color: var(--color-correct) !important;
+}
+
+.present {
+    background-color: var(--color-present) !important;
+    border-color: var(--color-present) !important;
+}
+
+.absent {
+    background-color: var(--color-absent) !important;
+    border-color: var(--color-absent) !important;
+}
+
+/* --- Keyboard --- */
+#keyboard-container {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 500px;
+}
+
+.keyboard-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 8px;
+}
+
+.keyboard-button {
+    font-weight: bold;
+    border: 0;
+    padding: 10px 0;
+    margin: 0 4px;
+    height: 48px;
+    cursor: pointer;
+    background-color: var(--color-absent);
+    color: white;
+    border-radius: 4px;
+    flex: 1; /* Distribute space evenly */
+    max-width: 42px;
+    min-width: 25px;
+    transition: background-color 0.5s;
+}
+.keyboard-button[id^="key-ENTER"], .keyboard-button[id^="key-DEL"] {
+    flex: 1.5;
+    max-width: 60px; 
+}
+
+/* --- Message Area and Modal --- */
+#message-area {
+    position: fixed;
+    top: 10%;
+    background-color: var(--color-text);
+    color: var(--color-bg);
+    padding: 10px 20px;
+    border-radius: 5px;
+    opacity: 0;
+    transition: opacity 0.5s;
+    font-weight: bold;
+    z-index: 100;
+}
+
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 10; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.4); 
+}
+
+.modal-content {
+    background-color: var(--color-bg);
+    margin: 15% auto; 
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; 
+    max-width: 400px;
+    border-radius: 10px;
+    position: relative;
+    color: var(--color-text);
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: var(--color-text);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    text-align: left;
+}
+
+#leaderboard-table th, #leaderboard-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+#share-results-button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: var(--color-correct);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
